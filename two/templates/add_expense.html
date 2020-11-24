@@ -3,5 +3,27 @@
 
 Add eXpense
 {%endblock%}
-{% block title%}
+{%block body%}
+<h3>Add Expenses</h3>
+<div class="container">
+     <form class="form" action="/exp" id="exp" method="POST" >
+
+<select class="custom-select" form="exp" name="expense_type">
+  <option selected>Select Expense Type</option>
+  <option value="groceries">groceries</option>
+  <option value="electronics">electronics</option>
+  <option value="clothing">clothing</option>
+    <option value="bills">bills</option>
+    <option value="other">other</option>
+</select>
+    <label for="desc">Description</label>
+    <textarea class="form-control" id="desc" form="exp" name="description" rows="3" required></textarea>
+
+         <label for="cost">Amount</label>
+    <input type="number" class="form-control" id="cost" name="amount" form="exp" required>
+          <label for="date">Date</label>
+    <input type="date" id="date" class="form-control" name="date" form="exp" required>
+          <button class="btn btn-primary btn-block" form="exp" type="submit">submit & Go Back</button>
+     </form>
+</div>
 {%endblock%}

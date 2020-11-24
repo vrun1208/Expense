@@ -7,11 +7,24 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from passlib.hash import sha256_crypt
 from datetime import datetime
 import os
+import decimal
+from functools import wraps
+import expense_table
 
 
-engine = create_engine("mysql://root:@localhost/expense")
+
+engine = create_engine("mysql+pymysql://root:@localhost/expense")
 db = scoped_session(sessionmaker(bind=engine))
 app = Flask(__name__)
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get("user_id") is None:
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -24,6 +37,8 @@ def user_login():
                                   {"username": username}).fetchone()
         passworddata = db.execute("SELECT password FROM users WHERE username=:username",
                                   {"username": username}).fetchone()
+        userid = db.execute("SELECT user_id FROM users where username=:username",
+                                        {"username": username}).fetchone()
 
         if usernamedata is None:
             flash("No Username!", "danger")
@@ -32,6 +47,7 @@ def user_login():
             for password_data in passworddata:
                 if sha256_crypt.verify(password,password_data):
                     session['log']=True
+                    session['user_id'] = str(userid[0])
                     session['user']=str(username)
                     flash("login successful!","success")
                     return redirect(url_for('home'))
@@ -58,16 +74,12 @@ def user_rgt():
         confirm_password = request.form.get('confirm')
         secure_paswword = sha256_crypt.hash(str(password))
 
-        if username or name or email or password or confirm_password is None:
-            flash("Field should not be empty!")
-            return render_template("registration.html")
-
 
         existingUsers = db.execute(
             "SELECT username FROM users WHERE LOWER(username) = :username", {"username": username.lower()}).fetchone()
 
         if existingUsers:
-            flash("Username already taken!")
+            flash("Username already taken!","danger")
             return render_template("registration.html")
 
         if not username:
@@ -78,6 +90,7 @@ def user_rgt():
                        "VALUES(:full_name, :username, :email_id, :password, :date)",
                        {"full_name": name,"username": username, "email_id": email, "password": secure_paswword, "date": datetime.now()})
             db.commit()
+
             flash("Registered Successfully!", "success")
             return redirect(url_for('user_login'))
         else:
@@ -104,7 +117,30 @@ def logout():
     flash("logged Out!","success")
     return render_template("home.html")
 
+@app.route('/add')
+def expenses():
 
-if __name__ == "__main__":
-    app.secret_key="qwertyasd123!@#"
-    app.run(port=5000, host="localhost", debug=True)
+    return render_template("add_expense.html")
+
+@app.route('/tab')
+def tab():
+    results = expense_table.getHistory(session["user_id"])
+    return render_template("exp_tab.html", results=results)
+
+@app.route('/exp', methods=['GET', 'POST'])
+def add():
+
+    if request.method=="POST":
+        form = list(request.form.items())
+        if len(form) == 0:
+            print("no value :")
+            return render_template("add_expense.html")
+        else:
+            print(form)
+            addexpense = expense_table.add_expenses(form, session["user_id"])
+            flash("success!", "success")
+            return render_template("exp_tab.html", expense=addexpense)
+    return None
+
+app.secret_key="qwertyasd123!@#"
+app.run(port=5000, host="localhost", debug=True)
